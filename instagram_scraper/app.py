@@ -1319,8 +1319,8 @@ class InstagramScraper(object):
             with open(dst, 'rb') as f:
                 key = list(merged.keys())[0]
                 file_data = json.load(codecs.getreader('utf-8')(f))
-                self.remove_duplicate_data(file_data[key])
                 if key in file_data:
+                    self.remove_duplicate_data(file_data[key])
                     merged[key] = file_data[key]
             self.save_json(merged, dst)
 
