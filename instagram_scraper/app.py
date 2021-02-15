@@ -17,6 +17,7 @@ import socket
 import sys
 import textwrap
 import time
+import random
 import xml.etree.ElementTree as ET
 import moviepy.editor as mpe
 
@@ -96,10 +97,25 @@ class InstagramScraper(object):
                             media_types=['image', 'video', 'story-image', 'story-video', 'broadcast'],
                             tag=False, location=False, search_location=False, comments=False,
                             verbose=0, include_location=False, filter=None, proxies={}, no_check_certificate=False,
-                                                        template='{urlname}', log_destination='')
+                            template='{urlname}', log_destination='', random_ua=True, random_sleep_between=True)
 
         allowed_attr = list(default_attr.keys())
         default_attr.update(kwargs)
+        
+        ua_list = [
+            'Mozilla/5.0 (iPhone; CPU iPhone OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.150 Safari/537.36 Edg/88.0.705.68',
+            'Mozilla/5.0 (iPhone; CPU iPhone OS 12_1_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/16D57',
+            'Mozilla/5.0 (iPhone; CPU iPhone OS 13_3_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.5 Mobile/15E148 Safari/604.1',
+            'Mozilla/5.0 (Linux; Android 4.3; MediaPad 7 Youth 2 Build/HuaweiMediaPad) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.83 Safari/537.36',
+            'Mozilla/5.0 (Linux; Android 7.0; TRT-LX2 Build/HUAWEITRT-LX2; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/59.0.3071.125 Mobile Safari/537.36',
+            'Mozilla/5.0 (Linux; U; Android 6.0.1; zh-CN; F5121 Build/34.0.A.1.247) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/40.0.2214.89 UCBrowser/11.5.1.944 Mobile Safari/537.36',
+            'Opera/9.80 (Linux armv7l) Presto/2.12.407 Version/12.51 , D50u-D1-UHD/V1.5.16-UHD (Vizio, D50u-D1, Wireless)'
+        ]
+        if self.random_ua:
+            self.chrome_win_ua = random.choice(ua_list)
+        else:
+            self.chrome_win_ua = CHROME_WIN_UA
 
         for key in default_attr:
             if key in allowed_attr:
@@ -140,7 +156,7 @@ class InstagramScraper(object):
             self.logger.error("Check is valid json type.")
             raise
 
-        self.session.headers = {'user-agent': CHROME_WIN_UA}
+        self.session.headers = {'user-agent': self.chrome_win_ua}
         if self.cookiejar and os.path.exists(self.cookiejar):
             with open(self.cookiejar, 'rb') as f:
                 self.session.cookies.update(pickle.load(f))
@@ -183,6 +199,10 @@ class InstagramScraper(object):
                 self.logger.info( 'The user has chosen to abort' )
                 return None
 
+    def sleep_between_http_call(self):
+        if self.random_sleep_between:
+            time.sleep(random.random() * 5)
+
     def safe_get(self, *args, **kwargs):
         # out of the box solution
         # session.mount('https://', HTTPAdapter(max_retries=...))
@@ -191,6 +211,8 @@ class InstagramScraper(object):
         retry = 0
         retry_delay = RETRY_DELAY
         while True:
+            self.sleep_between_http_call()
+
             if self.quit:
                 return
             try:
@@ -239,7 +261,7 @@ class InstagramScraper(object):
 
         self.session.headers.update({'X-CSRFToken': req.cookies['csrftoken']})
 
-        self.session.headers.update({'user-agent': CHROME_WIN_UA})
+        self.session.headers.update({'user-agent': self.chrome_win_ua})
         self.rhx_gis = ""
         self.authenticated = True
 
@@ -259,7 +281,7 @@ class InstagramScraper(object):
         if login_text.get('authenticated') and login.status_code == 200:
             self.authenticated = True
             self.logged_in = True
-            self.session.headers.update({'user-agent': CHROME_WIN_UA})
+            self.session.headers.update({'user-agent': self.chrome_win_ua})
             self.rhx_gis = ""
         else:
             self.logger.error('Login failed for ' + self.login_user)
@@ -1119,6 +1141,8 @@ class InstagramScraper(object):
                                 downloaded_before = downloaded
                                 headers['Range'] = 'bytes={0}-'.format(downloaded_before)
 
+                                self.sleep_between_http_call()
+
                                 with self.session.get(url, cookies=self.cookies, headers=headers, stream=True, timeout=CONNECT_TIMEOUT) as response:
                                     if response.status_code == 404 or response.status_code == 410:
                                         #on 410 error see issue #343
@@ -1555,6 +1579,8 @@ def main():
     parser.add_argument('--verbose', '-v', type=int, default=0, help='Logging verbosity level')
     parser.add_argument('--template', '-T', type=str, default='{urlname}', help='Customize filename template')
     parser.add_argument('--log_destination', '-l', type=str, default='', help='destination folder for the instagram-scraper.log file')
+    parser.add_argument('--random_ua', action='store_true', default=True, help='Use random User Agent')
+    parser.add_argument('--random_sleep_between', action='store_true', default=True, help='Sleep random betweeen http call')
 
     args = parser.parse_args()
 
