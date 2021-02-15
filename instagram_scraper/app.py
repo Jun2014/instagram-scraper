@@ -101,7 +101,12 @@ class InstagramScraper(object):
 
         allowed_attr = list(default_attr.keys())
         default_attr.update(kwargs)
+
+        for key in default_attr:
+            if key in allowed_attr:
+                self.__dict__[key] = default_attr.get(key)
         
+        # set user agent
         ua_list = [
             'Mozilla/5.0 (iPhone; CPU iPhone OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148',
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.150 Safari/537.36 Edg/88.0.705.68',
@@ -116,10 +121,6 @@ class InstagramScraper(object):
             self.chrome_win_ua = random.choice(ua_list)
         else:
             self.chrome_win_ua = CHROME_WIN_UA
-
-        for key in default_attr:
-            if key in allowed_attr:
-                self.__dict__[key] = default_attr.get(key)
 
         # story media type means story-image & story-video
         if 'story' in self.media_types:
